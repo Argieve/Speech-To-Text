@@ -10,16 +10,16 @@
             text-align: center;
             padding: 20px;
         }
-        button {
-            margin: 10px;
-            padding: 10px 20px;
-            font-size: 16px;
-            cursor: pointer;
-        }
         #transcription {
             margin-top: 20px;
             font-size: 18px;
             white-space: pre-wrap; /* Preserve whitespace formatting */
+        }
+        #finalTranscription {
+            margin-top: 20px;
+            font-size: 18px;
+            font-weight: bold;
+            color: #007BFF; /* Optional: Add a color to distinguish the final spell */
         }
     </style>
     <!-- Include Fuse.js -->
@@ -27,20 +27,20 @@
 </head>
 <body>
     <h1>Speech to Text</h1>
-    <button id="startButton">Start Speech Recognition</button>
-    <button id="stopButton" disabled>Stop Speech Recognition</button>
-    <p id="transcription">Transcription will appear here...</p>
+    <p id="transcription">Hold "T" or "t" to start speech recognition...</p>
+    <p id="finalTranscription">Your spell will appear here...</p>
 
     <script>
-        const startButton = document.getElementById("startButton");
-        const stopButton = document.getElementById("stopButton");
         const transcriptionElement = document.getElementById("transcription");
+        const finalTranscriptionElement = document.getElementById("finalTranscription");
 
         let recognition;
+        let isRecording = false;
         let timeoutId;
+        let lastTranscript = '';
 
         // List of known words for filtering
-        const knownWords = ["stupefy", /*"accio"/* Does Not Work */, "alohomora", "avada kedavra" /* Sometimes Works and spell right */, "bombarda" /* Sometimes Works and spell right */, "confringo", "crucio", /*"diffindo"/* Works Little and spell right */, "engorgio"/* Spell "Engorżio" */, "episkey" /* Spell EpiSki */, "evanesco", "expelliarmus", /*"furnunculus" /* Spell Funanculus, Pretty Hard */, "impedimenta", /*"imperio"*/, "incendio", "langlock", /*"legilimens"*/, "lumos", "nox", "obliviate", /*"petrificus totalus" /* Peczrifikius Totalus */, "reducto", "rennervate", "reparo", /*"sectumsempra" /* Works Very Little */, /*"tarantallegra" /* Almost Does Not Work */, /*"wingardium leviosa"/* Works Very Little */, /*"riddikulus" /* Works Fine */, "expecto patronum","protego", "finite","levicorpus","repello" /*Flipendo but so its easier to say*/, "vulnera" ];
+        const knownWords = ["stupefy", "alohomora", "avada kedavra", "bombarda", "confringo", "crucio", "engorgio", "episkey", "evanesco", "expelliarmus", "impedimenta", "incendio", "langlock", "lumos", "nox", "obliviate", "reducto", "rennervate", "reparo", "expecto patronum", "protego", "finite", "levicorpus", "repello", "vulnera"];
 
         // Create Fuse instance for fuzzy searching
         const fuse = new Fuse(knownWords, {
@@ -58,10 +58,9 @@
         function startAutoStopTimer() {
             clearTimeout(timeoutId);
             timeoutId = setTimeout(() => {
-                if (recognition) {
+                if (recognition && isRecording) {
                     recognition.stop();
-                    startButton.disabled = false;
-                    stopButton.disabled = true;
+                    isRecording = false;
                     transcriptionElement.textContent = "Stopped listening due to inactivity.";
                 }
             }, 5000); // 5 seconds timeout
@@ -70,7 +69,6 @@
         // Check if the Web Speech API is supported
         if (!('webkitSpeechRecognition' in window)) {
             transcriptionElement.textContent = "Web Speech API is not supported by your browser.";
-            startButton.disabled = true;
         } else {
             // Create a new instance of the Web Speech API's SpeechRecognition
             recognition = new webkitSpeechRecognition();
@@ -90,36 +88,40 @@
                         }
                     });
                 }
-                transcriptionElement.textContent = transcript;
+                lastTranscript = transcript; // Save the latest transcript
+                transcriptionElement.textContent = "Listening..."; // Update status
                 startAutoStopTimer(); // Restart timer after processing
             };
 
             recognition.onerror = (event) => {
                 console.error('Speech recognition error:', event.error);
                 transcriptionElement.textContent = "An error occurred during speech recognition.";
-                startButton.disabled = false;
-                stopButton.disabled = true;
             };
 
             recognition.onend = () => {
-                startButton.disabled = false;
-                stopButton.disabled = true;
+                isRecording = false;
+                transcriptionElement.textContent = "Speech recognition ended.";
             };
 
-            startButton.addEventListener("click", () => {
-                recognition.start();
-                startButton.disabled = true;
-                stopButton.disabled = false;
-                transcriptionElement.textContent = "Listening...";
-                startAutoStopTimer(); // Start the timeout when listening starts
+            // Start recording when "T" or "t" is pressed
+            document.addEventListener("keydown", (event) => {
+                if (event.key.toLowerCase() === "t" && !isRecording) {
+                    recognition.start();
+                    isRecording = true;
+                    transcriptionElement.textContent = "Listening...";
+                    startAutoStopTimer(); // Start the timeout when listening starts
+                }
             });
 
-            stopButton.addEventListener("click", () => {
-                recognition.stop();
-                startButton.disabled = false;
-                stopButton.disabled = true;
-                transcriptionElement.textContent = "Stopped listening.";
-                clearTimeout(timeoutId); // Clear the timeout if stopped manually
+            // Stop recording when "T" or "t" is released
+            document.addEventListener("keyup", (event) => {
+                if (event.key.toLowerCase() === "t" && isRecording) {
+                    recognition.stop();
+                    isRecording = false;
+                    transcriptionElement.textContent = "Stopped listening.";
+                    finalTranscriptionElement.textContent = lastTranscript; // Display the final spell
+                    clearTimeout(timeoutId); // Clear the timeout if stopped manually
+                }
             });
         }
     </script>
